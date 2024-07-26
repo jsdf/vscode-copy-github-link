@@ -10,7 +10,9 @@ export function activate(context: vscode.ExtensionContext) {
 	const disposableCopy = vscode.commands.registerCommand('copy-github-link.copyGitHubLink', () => {
 		outputChannel.show();
 		showGitHubLink();
-		outputChannel.hide();
+
+		// Don't hide the output channel, it will close the "Output" panel.
+		// outputChannel.hide();
 	});
 
 	context.subscriptions.push(disposableCopy);
