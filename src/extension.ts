@@ -25,12 +25,12 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(disposable);
 
 	const disposableCopy = vscode.commands.registerCommand('copy-github-link.copyGitHubLink', () => {
+		outputChannel.show();
 		showGitHubLink();
+		outputChannel.hide();
 	});
 
 	context.subscriptions.push(disposableCopy);
-
-	// outputChannel.show();
 }
 
 async function showGitHubLink() {
