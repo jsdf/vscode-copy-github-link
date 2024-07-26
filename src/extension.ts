@@ -8,7 +8,8 @@ const outputChannel = vscode.window.createOutputChannel('Copy GitHub Link');
 
 export function activate(context: vscode.ExtensionContext) {
 	const disposableCopy = vscode.commands.registerCommand('copy-github-link.copyGitHubLink', () => {
-		outputChannel.show();
+		// outputChannel.show();
+
 		showGitHubLink();
 
 		// Don't hide the output channel, it will close the "Output" panel.
@@ -52,13 +53,13 @@ async function getGitHubLink(): Promise<string> {
 		throw new Error('No content found at line number');
 	}
 
-	// get the latest commit hash for the line
-	const result = await getLatestCommitForSnippet(filePath, snippet)
-	if (!result.commitHash || !result.lineNumberRange) {
-		throw new Error('Could not find commit hash or line number range');
-	}
-	const commitHash = result.commitHash as string;
-	const lineNumberRange = result.lineNumberRange as [number, number];
+	// // get the latest commit hash for the line
+	// const result = await getLatestCommitForSnippet(filePath, snippet)
+	// if (!result.commitHash || !result.lineNumberRange) {
+	// 	throw new Error('Could not find commit hash or line number range');
+	// }
+	// const commitHash = result.commitHash as string;
+	// const lineNumberRange = result.lineNumberRange as [number, number];
 
 	// get all git remotes
 	const remotes = await getGitRemotes().then(remotes => {
@@ -100,6 +101,7 @@ async function getGitHubLink(): Promise<string> {
 	const sshRegex = /^.+git@github\.com:(.+?)\/(.+?)\.git$/;
 	const httpsRegex = /^.+https:\/\/github\.com\/(.+?)\/(.+?)$/;
 
+	var remoteName = remote.split(':')[0];
 	var owner = "";
 	var repo = "";
 	let match = remote.match(sshRegex);
@@ -121,8 +123,33 @@ async function getGitHubLink(): Promise<string> {
 	if (repo === "") {
 		throw new Error('Could not determine repo from remote url');
 	}
+
+	// git remote show upstream
+	const content = await git.raw([
+		'remote',
+		'show',
+		remoteName
+	]);
+	// example match: "HEAD branch: master"
+	const headBranchMatch = content.match(/HEAD branch: (.+)/);
+	if (!headBranchMatch) {
+		throw new Error('Could not determine HEAD branch');
+	}
+	const headBranch = headBranchMatch[1];
+
+	// Get the commit id of the HEAD branch.
+	// We choose the "HEAD" since some code may comes from long time ago, we don't want to
+	// share a link N years ago.
+	const headCommit = await git.revparse([remoteName + '/' + headBranch]);
+
+	const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
+	if (!lineNumberRange) {
+		throw new Error('Could not find line number range');
+	}
+	outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
+
 	const [startLine, endLine] = lineNumberRange;
-	var gitHubLink = `https://github.com/${owner}/${repo}/blob/${commitHash}/${relativePath}#L${startLine}`;
+	var gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
 	if (endLine - startLine > 1) {
 		gitHubLink += `-L${endLine}`;
 	}
@@ -191,54 +218,6 @@ async function getLineNumberRangeForSnippet(relativePath: string, commit: string
 	} catch (error) {
 		outputChannel.appendLine(`Error reading file: ${error}`);
 		return undefined;
-	}
-}
-
-async function getLatestCommitForSnippet(filePath: string, snippet: string): Promise<{ commitHash: string | undefined, lineNumberRange: [number, number] | undefined }> {
-	outputChannel.appendLine(`filePath: ${filePath}`);
-	outputChannel.appendLine(`snippet: ${snippet}`);
-
-	const relativePath = vscode.workspace.asRelativePath(filePath, false);
-	outputChannel.appendLine(`relativePath: ${relativePath}`);
-
-	try {
-		// Get the line number range for the snippet
-		const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, "HEAD", snippet);
-		if (!lineNumberRange) {
-			return { commitHash: undefined, lineNumberRange: undefined };
-		}
-
-		const [startLine, endLine] = lineNumberRange;
-		outputChannel.appendLine(`lineNumberRange at HEAD: ${lineNumberRange}`);
-
-		// Use git.log -L to find the latest commit that modified the line range
-		const logOutput = await git.raw([
-			'log',
-			`-L${startLine},${endLine}:${relativePath}`
-		]);
-
-		// Parse the output to get the latest commit hash
-		const lines = logOutput.split('\n');
-		const commitLines = lines.filter(line => line.startsWith('commit '));
-
-		if (commitLines.length > 0) {
-			const latestCommitLine = commitLines[0];
-			const commitHash = latestCommitLine.replace('commit ', '').trim();
-
-			// Get the line number range for the snippet
-			const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, commitHash, snippet);
-			if (!lineNumberRange) {
-				return { commitHash: undefined, lineNumberRange: undefined };
-			}
-			outputChannel.appendLine(`lineNumberRange at commit ${commitHash}: ${lineNumberRange}`);
-			return { commitHash, lineNumberRange };
-		} else {
-			outputChannel.appendLine('No commits found for the specified line range.');
-			return { commitHash: undefined, lineNumberRange: undefined };
-		}
-	} catch (error) {
-		outputChannel.appendLine(`Error getting commit log: ${error}`);
-		return { commitHash: undefined, lineNumberRange: undefined };
 	}
 }
 
