@@ -1,6 +1,6 @@
 publish:
 	git add --all
-	git commit -m "Update"
+	git commit -m "Update" || true
 	git push
 
 	npm install -g @vscode/vsce
