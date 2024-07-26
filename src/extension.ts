@@ -200,21 +200,22 @@ async function getLineNumberRangeForSnippet(relativePath: string, commit: string
 		let startLine = -1;
 		let endLine = -1;
 
+		var candidates: [number, number][] = [];
 		for (let i = 0; i < fileLines.length; i++) {
 			// Check if the snippet matches the lines at position i
-			if (fileLines.slice(i, i + snippetLines.length).join('\n') === snippet) {
+			if (fileLines.slice(i, i + snippetLines.length).join('\n').includes(snippet)) {
 				startLine = i + 1; // Lines are 1-indexed
 				endLine = startLine + snippetLines.length - 1;
-				break;
+				candidates.push([startLine, endLine]);
 			}
 		}
 
-		if (startLine === -1 || endLine === -1) {
-			outputChannel.appendLine('Snippet not found in file.');
-			return undefined;
+		if (candidates.length !== 1) {
+			outputChannel.appendLine(`Found ${candidates.length} candidates for snippet: ${snippet}, candidates: ${candidates}`);
+			throw new Error('Found multiple candidates for snippet');
 		}
 
-		return [startLine, endLine];
+		return candidates[0];
 	} catch (error) {
 		outputChannel.appendLine(`Error reading file: ${error}`);
 		return undefined;
