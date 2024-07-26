@@ -99,7 +99,7 @@ async function getGitHubLink(): Promise<string> {
 	// => owner: msbutler
 	// => repo: cockroach
 	const sshRegex = /^.+git@github\.com:(.+?)\/(.+?)\.git$/;
-	const httpsRegex = /^.+https:\/\/github\.com\/(.+?)\/(.+?)$/;
+	const httpsRegex = /^.+https:\/\/github\.com\/(.+?)\.git$/;
 
 	var remoteName = remote.split(':')[0];
 	var owner = "";
