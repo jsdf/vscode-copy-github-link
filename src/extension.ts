@@ -53,76 +53,15 @@ async function getGitHubLink(): Promise<string> {
 		throw new Error('No content found at line number');
 	}
 
-	// // get the latest commit hash for the line
-	// const result = await getLatestCommitForSnippet(filePath, snippet)
-	// if (!result.commitHash || !result.lineNumberRange) {
-	// 	throw new Error('Could not find commit hash or line number range');
-	// }
-	// const commitHash = result.commitHash as string;
-	// const lineNumberRange = result.lineNumberRange as [number, number];
-
 	// get all git remotes
-	const remotes = await getGitRemotes().then(remotes => {
-		// throw error if no remotes found
-		if (remotes.length === 0) {
-			throw new Error('No git remotes found');
-		}
-
-		var preferred = ['upstream', 'origin'];
-		// sort remotes by preferred order
-		remotes.sort((a, b) => {
-			var aIndex = preferred.indexOf(a.split(':')[0]);
-			if (aIndex === -1) {
-				// if not in preferred list, put it at the end
-				aIndex = 1000;
-			}
-
-			var bIndex = preferred.indexOf(b.split(':')[0]);
-			if (bIndex === -1) {
-				// if not in preferred list, put it at the end
-				bIndex = 1000;
-			}
-
-			return aIndex - bIndex;
-		});
-
-		return remotes;
-	});
+	var remotes = await getGitRemotes()
+	remotes = sortRemotes(remotes);
 
 	const remote = remotes[0];
+	const remoteName = remote.split(':')[0];
+	const remoteUrl = remote.split(':')[1];
 
-	// get owner (org/user) name
-	// remote: "upstream git@github.com:cockroachdb/cockroach.git"
-	// => owner: cockroachdb
-	// => repo: cockroach
-	// remote: "butter https://github.com/msbutler/cockroach.git"
-	// => owner: msbutler
-	// => repo: cockroach
-	const sshRegex = /^.+git@github\.com:(.+?)\/(.+?)\.git$/;
-	const httpsRegex = /^.+https:\/\/github\.com\/(.+?)\/(.+?)\.git$/;
-
-	var remoteName = remote.split(':')[0];
-	var owner = "";
-	var repo = "";
-	let match = remote.match(sshRegex);
-	if (match) {
-		owner = match[1];
-		repo = match[2];
-	}
-
-	match = remote.match(httpsRegex);
-	if (match) {
-		owner = match[1];
-		repo = match[2];
-	}
-
-	if (owner === "") {
-		throw new Error('Could not determine owner from remote url');
-	}
-
-	if (repo === "") {
-		throw new Error('Could not determine repo from remote url');
-	}
+	const [owner, repo] = getMetaInfo(remoteUrl);
 
 	// git remote show upstream
 	const content = await git.raw([
@@ -176,6 +115,64 @@ const git = initGit();
 async function getGitRemotes(): Promise<string[]> {
 	const remotes = await git.getRemotes(true);
 	return remotes.map(remote => `${remote.name}: ${remote.refs.fetch}`);
+}
+
+function sortRemotes(remotes: string[]): string[] {
+	var preferred = ['upstream', 'origin'];
+	// sort remotes by preferred order
+	remotes.sort((a, b) => {
+		var aIndex = preferred.indexOf(a.split(':')[0]);
+		if (aIndex === -1) {
+			// if not in preferred list, put it at the end
+			aIndex = 1000;
+		}
+
+		var bIndex = preferred.indexOf(b.split(':')[0]);
+		if (bIndex === -1) {
+			// if not in preferred list, put it at the end
+			bIndex = 1000;
+		}
+
+		return aIndex - bIndex;
+	});
+
+	return remotes;
+}
+
+function getMetaInfo(url: string): [owner: string, repo: string] {
+	// get owner (org/user) name
+	// remote: "git@github.com:cockroachdb/cockroach.git"
+	// => owner: cockroachdb
+	// => repo: cockroach
+	// remote: "https://github.com/msbutler/cockroach.git"
+	// => owner: msbutler
+	// => repo: cockroach
+	const sshRegex = /^git@github\.com:(.+?)\/(.+?)\.git$/;
+	const httpsRegex = /^https:\/\/github\.com\/(.+?)\/(.+?)\.git$/;
+
+	var owner = "";
+	var repo = "";
+	let match = url.match(sshRegex);
+	if (match) {
+		owner = match[1];
+		repo = match[2];
+	}
+
+	match = url.match(httpsRegex);
+	if (match) {
+		owner = match[1];
+		repo = match[2];
+	}
+
+	if (owner === "") {
+		throw new Error('Could not determine owner from remote url');
+	}
+
+	if (repo === "") {
+		throw new Error('Could not determine repo from remote url');
+	}
+
+	return [owner, repo];
 }
 
 async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number] | undefined> {
