@@ -166,6 +166,8 @@ async function getGitRemotes(): Promise<string[]> {
 }
 
 async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number] | undefined> {
+	outputChannel.appendLine(`getLineNumberRangeForSnippet, args: relativePath: ${relativePath}, commit: ${commit}, snippet: ${snippet}`);
+
 	try {
 		// Read the file content at the specified revision
 		// git show REVISION:path/to/file
@@ -195,13 +197,13 @@ async function getLineNumberRangeForSnippet(relativePath: string, commit: string
 		}
 
 		if (startLine === -1 || endLine === -1) {
-			console.error('Snippet not found in file.');
+			outputChannel.appendLine('Snippet not found in file.');
 			return undefined;
 		}
 
 		return [startLine, endLine];
 	} catch (error) {
-		console.error('Error reading file:', error);
+		outputChannel.appendLine(`Error reading file: ${error}`);
 		return undefined;
 	}
 }
