@@ -1,8 +1,8 @@
 {
   "publisher": "XiaochenCui",
   "name": "copy-github-link",
-  "displayName": "copy-github-link",
-  "description": "copy github link of a code snippet",
+  "displayName": "Copy GitHub Link",
+  "description": "Copy GitHub link of a code snippet, no extra configuration needed.",
   "repository": {
     "type": "git",
     "url": "https://github.com/XiaochenCui/vscode-copy-github-link"

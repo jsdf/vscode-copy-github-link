@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 
 import simpleGit, { SimpleGit } from 'simple-git';
 
+const outputChannel = vscode.window.createOutputChannel('Copy GitHub Link');
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -28,6 +29,8 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposableCopy);
+
+	// outputChannel.show();
 }
 
 async function showGitHubLink() {
@@ -65,6 +68,9 @@ async function getGitHubLink(): Promise<string> {
 
 	// get the latest commit hash for the line
 	const result = await getLatestCommitForSnippet(filePath, snippet)
+	if (!result.commitHash || !result.lineNumberRange) {
+		throw new Error('Could not find commit hash or line number range');
+	}
 	const commitHash = result.commitHash as string;
 	const lineNumberRange = result.lineNumberRange as [number, number];
 
@@ -201,11 +207,11 @@ async function getLineNumberRangeForSnippet(relativePath: string, commit: string
 }
 
 async function getLatestCommitForSnippet(filePath: string, snippet: string): Promise<{ commitHash: string | undefined, lineNumberRange: [number, number] | undefined }> {
-	console.log('filePath:', filePath);
-	console.log('Getting latest commit for snippet:', snippet);
+	outputChannel.appendLine(`filePath: ${filePath}`);
+	outputChannel.appendLine(`snippet: ${snippet}`);
 
 	const relativePath = vscode.workspace.asRelativePath(filePath, false);
-	console.log('relativePath:', relativePath);
+	outputChannel.appendLine(`relativePath: ${relativePath}`);
 
 	try {
 		// Get the line number range for the snippet
@@ -215,7 +221,7 @@ async function getLatestCommitForSnippet(filePath: string, snippet: string): Pro
 		}
 
 		const [startLine, endLine] = lineNumberRange;
-		console.log('lineNumberRange at HEAD:', lineNumberRange);
+		outputChannel.appendLine(`lineNumberRange at HEAD: ${lineNumberRange}`);
 
 		// Use git.log -L to find the latest commit that modified the line range
 		const logOutput = await git.raw([
@@ -236,14 +242,15 @@ async function getLatestCommitForSnippet(filePath: string, snippet: string): Pro
 			if (!lineNumberRange) {
 				return { commitHash: undefined, lineNumberRange: undefined };
 			}
-			console.log(`lineNumberRange at commit ${commitHash}:`, lineNumberRange);
+			outputChannel.appendLine(`lineNumberRange at commit ${commitHash}: ${lineNumberRange}`);
 			return { commitHash, lineNumberRange };
 		} else {
-			console.log('No commits found for the specified line range.');
+			outputChannel.appendLine('No commits found for the specified line range.');
 			return { commitHash: undefined, lineNumberRange: undefined };
 		}
 	} catch (error) {
-		console.error('Error getting commit log:', error);
+		// console.error('Error getting commit log:', error);
+		outputChannel.appendLine(`Error getting commit log: ${error}`);
 		return { commitHash: undefined, lineNumberRange: undefined };
 	}
 }
