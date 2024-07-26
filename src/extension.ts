@@ -42,6 +42,7 @@ async function showGitHubLink() {
 		// Handle errors thrown by getGitHubLink
 		if (error instanceof Error) {
 			vscode.window.showErrorMessage(error.message);
+			console.error(error);
 		} else {
 			vscode.window.showErrorMessage('An unknown error occurred');
 		}
@@ -251,7 +252,6 @@ async function getLatestCommitForSnippet(filePath: string, snippet: string): Pro
 			return { commitHash: undefined, lineNumberRange: undefined };
 		}
 	} catch (error) {
-		// console.error('Error getting commit log:', error);
 		outputChannel.appendLine(`Error getting commit log: ${error}`);
 		return { commitHash: undefined, lineNumberRange: undefined };
 	}
