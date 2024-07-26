@@ -1,3 +1,3 @@
-# copy-github-link 
+# copy-github-link
 
-copy github link of a code snippet
+Copy the GitHub link of a code snippet, no extra configuration needed.

@@ -2,12 +2,12 @@
   "publisher": "XiaochenCui",
   "name": "copy-github-link",
   "displayName": "Copy GitHub Link",
-  "description": "Copy GitHub link of a code snippet, no extra configuration needed.",
+  "description": "Copy the GitHub link of a code snippet, no extra configuration needed.",
   "repository": {
     "type": "git",
     "url": "https://github.com/XiaochenCui/vscode-copy-github-link"
   },
-  "version": "0.5.1",
+  "version": "0.5.2",
   "engines": {
     "vscode": "^1.91.0"
   },
