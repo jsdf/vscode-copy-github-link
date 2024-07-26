@@ -95,11 +95,11 @@ async function getGitHubLink(): Promise<string> {
 	// remote: "upstream git@github.com:cockroachdb/cockroach.git"
 	// => owner: cockroachdb
 	// => repo: cockroach
-	// remote: "butter https://github.com/msbutler/cockroach"
+	// remote: "butter https://github.com/msbutler/cockroach.git"
 	// => owner: msbutler
 	// => repo: cockroach
 	const sshRegex = /^.+git@github\.com:(.+?)\/(.+?)\.git$/;
-	const httpsRegex = /^.+https:\/\/github\.com\/(.+?)\.git$/;
+	const httpsRegex = /^.+https:\/\/github\.com\/(.+?)\/(.+?)\.git$/;
 
 	var remoteName = remote.split(':')[0];
 	var owner = "";
