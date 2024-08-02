@@ -59,8 +59,11 @@ async function getGitHubLink(): Promise<string> {
 	outputChannel.appendLine(`remotes: ${remotes}`);
 
 	const remote = remotes[0];
+	outputChannel.appendLine(`remote: ${remote}`);
+
 	const remoteName = remote.split(':')[0];
 	const remoteUrl = remote.split(':')[1];
+
 
 	const [owner, repo] = getMetaInfo(remoteUrl);
 
@@ -141,7 +144,7 @@ function sortRemotes(remotes: string[]): string[] {
 }
 
 function getMetaInfo(url: string): [owner: string, repo: string] {
-	outputChannel.appendLine(`getMetaInfo, args: url: ${url}`);
+	outputChannel.appendLine(`getMetaInfo, url: ${url}`);
 
 	// get owner (org/user) name
 	// remote: "git@github.com:cockroachdb/cockroach.git"
