@@ -45,57 +45,102 @@ async function getGitHubLink(): Promise<string> {
 	const filePath = editor.document.fileName;
 	const relativePath = vscode.workspace.asRelativePath(filePath, false);
 
-	const currentLineNumber = editor.selection.active.line + 1;
+	// const currentLineNumber = editor.selection.active.line + 1;
+	const selection = editor.selection;
+	const startLine = selection.start.line;
+	const endLine = selection.end.line;
 
-	// get content of the current line
-	const snippet = vscode.window.activeTextEditor?.document.lineAt(currentLineNumber - 1).text;
+	// get content of the selected lines
+	const snippet = editor.document.getText(new vscode.Range(startLine, 0, endLine, 0));
+
+	// const snippet = vscode.window.activeTextEditor?.document.lineAt(startLine - 1).text;
 	if (!snippet) {
 		throw new Error('No content found at line number');
 	}
 
 	// get all git remotes
-	var remotes = await getGitRemotes()
+	var remotes = await getGitRemotes();
 	remotes = sortRemotes(remotes);
 	outputChannel.appendLine(`remotes: ${remotes}`);
 
 	const remote = remotes[0];
 	outputChannel.appendLine(`remote: ${remote}`);
 
-	const remoteName = remote.split(':')[0];
-	const remoteUrl = remote.split(':')[1];
+	const remoteName = remote.split(' ')[0];
+	const remoteUrl = remote.split(' ')[1];
 
 
 	const [owner, repo] = getMetaInfo(remoteUrl);
 
 	// git remote show upstream
-	const content = await git.raw([
-		'remote',
-		'show',
-		remoteName
-	]);
-	// example match: "HEAD branch: master"
-	const headBranchMatch = content.match(/HEAD branch: (.+)/);
-	if (!headBranchMatch) {
-		throw new Error('Could not determine HEAD branch');
-	}
-	const headBranch = headBranchMatch[1];
+	var gitHubLink = "";
+	try {
+		const content = await git.raw([
+			'remote',
+			'show',
+			remoteName
+		]);
 
-	// Get the commit id of the HEAD branch.
-	// We choose the "HEAD" since some code may comes from long time ago, we don't want to
-	// share a link N years ago.
-	const headCommit = await git.revparse([remoteName + '/' + headBranch]);
+		// example match: "HEAD branch: master"
+		const headBranchMatch = content.match(/HEAD branch: (.+)/);
+		if (!headBranchMatch) {
+			throw new Error('Could not find remote HEAD branch');
+		}
+		const headBranch = headBranchMatch[1];
 
-	const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
-	if (!lineNumberRange) {
-		throw new Error('Could not find line number range');
-	}
-	outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
+		// Get the commit id of the HEAD branch.
+		// We choose the "HEAD" since some code may comes from long time ago, we don't want to
+		// share a link N years ago.
+		const headCommit = await git.revparse(remoteName + '/' + headBranch);
 
-	const [startLine, endLine] = lineNumberRange;
-	var gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
-	if (endLine - startLine > 1) {
-		gitHubLink += `-L${endLine}`;
+		const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
+		if (!lineNumberRange) {
+			throw new Error('Could not find line number range');
+		}
+		outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
+
+		if (lineNumberRange.length === 1) {
+			const [commitStartLine, commitEndLine] = lineNumberRange[0];
+			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${commitStartLine}`;
+			if (commitEndLine - commitStartLine > 1) {
+				gitHubLink += `-L${commitEndLine}`;
+			}
+		} else {
+			// multiple candidates, use local line numbers
+			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
+			if (endLine - startLine > 1) {
+				gitHubLink += `-L${endLine}`;
+			}
+		}
+	} catch (error) {
+		// Failed to access remote repo, use information from local repo
+		outputChannel.appendLine(`Error getting remote info: ${error}`);
+
+		const headBranch = "master";
+
+		const headCommit = await git.revparse(headBranch);
+
+		const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
+		if (!lineNumberRange) {
+			throw new Error('Could not find line number range');
+		}
+		outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
+
+		if (lineNumberRange.length === 1) {
+			const [commitStartLine, commitEndLine] = lineNumberRange[0];
+			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${commitStartLine}`;
+			if (commitEndLine - commitStartLine > 1) {
+				gitHubLink += `-L${commitEndLine}`;
+			}
+		} else {
+			// multiple candidates, use local line numbers
+			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
+			if (endLine - startLine > 1) {
+				gitHubLink += `-L${endLine}`;
+			}
+		}
 	}
+
 	vscode.window.showInformationMessage(`GitHub Link: ${gitHubLink}`);
 	// copy to clipboard
 	vscode.env.clipboard.writeText(gitHubLink);
@@ -111,7 +156,7 @@ function initGit(): SimpleGit {
 	if (!repoPath) {
 		throw new Error('No workspace folder found');
 	}
-	return git.cwd(repoPath)
+	return git.cwd(repoPath);
 }
 
 const git = initGit();
@@ -181,7 +226,11 @@ function getMetaInfo(url: string): [owner: string, repo: string] {
 	return [owner, repo];
 }
 
-async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number] | undefined> {
+/**
+ * Get the line number range of the snippet in the file at the specified commit. This function
+ * doesn't need remote access to the repository.
+ */
+async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number][] | undefined> {
 	outputChannel.appendLine(`getLineNumberRangeForSnippet, args: relativePath: ${relativePath}, commit: ${commit}, snippet: ${snippet}`);
 
 	try {
@@ -213,12 +262,11 @@ async function getLineNumberRangeForSnippet(relativePath: string, commit: string
 			}
 		}
 
-		if (candidates.length !== 1) {
-			outputChannel.appendLine(`Found ${candidates.length} candidates for snippet: ${snippet}, candidates: ${candidates}`);
-			throw new Error('Found multiple candidates for snippet');
+		if (candidates.length === 0) {
+			throw new Error('Could not find snippet in file');
 		}
 
-		return candidates[0];
+		return candidates;
 	} catch (error) {
 		outputChannel.appendLine(`Error reading file: ${error}`);
 		return undefined;
