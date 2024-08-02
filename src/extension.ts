@@ -47,8 +47,12 @@ async function getGitHubLink(): Promise<string> {
 
 	// const currentLineNumber = editor.selection.active.line + 1;
 	const selection = editor.selection;
-	const startLine = selection.start.line;
-	const endLine = selection.end.line;
+	var startLine = selection.start.line;
+	var endLine = selection.end.line;
+	if (startLine === endLine) {
+		// if only one line is selected, expand to the whole line
+		endLine += 1;
+	}
 
 	// get content of the selected lines
 	const snippet = editor.document.getText(new vscode.Range(startLine, 0, endLine, 0));
