@@ -73,7 +73,8 @@ async function getGitHubLink(): Promise<string> {
 	const [owner, repo] = getMetaInfo(remoteUrl);
 
 	// git remote show upstream
-	var gitHubLink = "";
+	var lineNumberRange: [number, number][] = [];
+	var headCommit = "";
 	try {
 		const content = await git.raw([
 			'remote',
@@ -91,53 +92,30 @@ async function getGitHubLink(): Promise<string> {
 		// Get the commit id of the HEAD branch.
 		// We choose the "HEAD" since some code may comes from long time ago, we don't want to
 		// share a link N years ago.
-		const headCommit = await git.revparse(remoteName + '/' + headBranch);
-
-		const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
-		if (!lineNumberRange) {
-			throw new Error('Could not find line number range');
-		}
-		outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
-
-		if (lineNumberRange.length === 1) {
-			const [commitStartLine, commitEndLine] = lineNumberRange[0];
-			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${commitStartLine}`;
-			if (commitEndLine - commitStartLine > 1) {
-				gitHubLink += `-L${commitEndLine}`;
-			}
-		} else {
-			// multiple candidates, use local line numbers
-			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
-			if (endLine - startLine > 1) {
-				gitHubLink += `-L${endLine}`;
-			}
-		}
+		headCommit = await git.revparse(remoteName + '/' + headBranch);
 	} catch (error) {
 		// Failed to access remote repo, use information from local repo
 		outputChannel.appendLine(`Error getting remote info: ${error}`);
 
 		const headBranch = "master";
+		headCommit = await git.revparse(headBranch);
+	}
 
-		const headCommit = await git.revparse(headBranch);
+	var lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
+	outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
 
-		const lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
-		if (!lineNumberRange) {
-			throw new Error('Could not find line number range');
+	var gitHubLink = "";
+	if (lineNumberRange.length === 1) {
+		const [commitStartLine, commitEndLine] = lineNumberRange[0];
+		gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${commitStartLine}`;
+		if (commitEndLine - commitStartLine > 1) {
+			gitHubLink += `-L${commitEndLine}`;
 		}
-		outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
-
-		if (lineNumberRange.length === 1) {
-			const [commitStartLine, commitEndLine] = lineNumberRange[0];
-			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${commitStartLine}`;
-			if (commitEndLine - commitStartLine > 1) {
-				gitHubLink += `-L${commitEndLine}`;
-			}
-		} else {
-			// multiple candidates, use local line numbers
-			gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
-			if (endLine - startLine > 1) {
-				gitHubLink += `-L${endLine}`;
-			}
+	} else {
+		// multiple candidates, use local line numbers
+		gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
+		if (endLine - startLine > 1) {
+			gitHubLink += `-L${endLine}`;
 		}
 	}
 
@@ -230,7 +208,7 @@ function getMetaInfo(url: string): [owner: string, repo: string] {
  * Get the line number range of the snippet in the file at the specified commit. This function
  * doesn't need remote access to the repository.
  */
-async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number][] | undefined> {
+async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number][]> {
 	outputChannel.appendLine(`getLineNumberRangeForSnippet, args: relativePath: ${relativePath}, commit: ${commit}, snippet: ${snippet}`);
 
 	try {
@@ -262,14 +240,10 @@ async function getLineNumberRangeForSnippet(relativePath: string, commit: string
 			}
 		}
 
-		if (candidates.length === 0) {
-			throw new Error('Could not find snippet in file');
-		}
-
 		return candidates;
 	} catch (error) {
 		outputChannel.appendLine(`Error reading file: ${error}`);
-		return undefined;
+		return [];
 	}
 }
 
