@@ -50,8 +50,8 @@ async function getGitHubLink(): Promise<string> {
 	var startLine = selection.start.line;
 	var endLine = selection.end.line + 1;
 
-	// get content of the selected lines
-	const snippet = editor.document.getText(new vscode.Range(startLine, 0, endLine, 0));
+	// get content of the selected lines, and remove the starting and trailing whitespaces
+	const snippet = editor.document.getText(new vscode.Range(startLine, 0, endLine, 0)).trim();
 
 	// const snippet = vscode.window.activeTextEditor?.document.lineAt(startLine - 1).text;
 	if (!snippet) {
