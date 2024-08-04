@@ -105,18 +105,31 @@ async function getGitHubLink(): Promise<string> {
 	outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
 
 	var gitHubLink = "";
-	if (lineNumberRange.length === 1) {
-		const [commitStartLine, commitEndLine] = lineNumberRange[0];
-		gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${commitStartLine}`;
-		if (commitEndLine - commitStartLine > 1) {
-			gitHubLink += `-L${commitEndLine}`;
-		}
+	if (lineNumberRange.length === 0) {
+		// no candidate, use local line numbers
+	} else if (lineNumberRange.length === 1) {
+		// single candidate, use commit line numbers
+		[startLine, endLine] = lineNumberRange[0];
 	} else {
-		// multiple candidates, use local line numbers
-		gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
-		if (endLine - startLine > 1) {
-			gitHubLink += `-L${endLine}`;
+		// multiple candidates, use closest line numbers
+		var closestLineNumberRange = lineNumberRange[0];
+		for (const [start, end] of lineNumberRange) {
+			// get the distance to the current selection
+			const currentDistance = Math.abs(startLine - start);
+
+			// get the distance to the closest selection
+			const closestDistance = Math.abs(startLine - closestLineNumberRange[0]);
+
+			if (currentDistance < closestDistance) {
+				closestLineNumberRange = [start, end];
+			}
 		}
+		[startLine, endLine] = closestLineNumberRange;
+	}
+
+	gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
+	if (endLine - startLine > 1) {
+		gitHubLink += `-L${endLine}`;
 	}
 
 	vscode.window.showInformationMessage(`GitHub Link: ${gitHubLink}`);
