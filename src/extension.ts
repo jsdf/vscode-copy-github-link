@@ -41,8 +41,21 @@ async function getGitHubLink(): Promise<string> {
 		throw new Error('No active editor found');
 	}
 
-	// get relative path
 	const filePath = editor.document.fileName;
+
+	// get the git project that contains the file
+	var git: SimpleGit | undefined;
+	for (const project of gitProjects) {
+		if (filePath.startsWith(project.rootPath)) {
+			git = project.git;
+			break;
+		}
+	}
+	if (!git) {
+		throw new Error('No git project found');
+	}
+
+	// get relative path
 	const relativePath = vscode.workspace.asRelativePath(filePath, false);
 
 	// const currentLineNumber = editor.selection.active.line + 1;
@@ -59,7 +72,7 @@ async function getGitHubLink(): Promise<string> {
 	}
 
 	// get all git remotes
-	var remotes = await getGitRemotes();
+	var remotes = await getGitRemotes(git);
 	remotes = sortRemotes(remotes);
 	outputChannel.appendLine(`remotes: ${remotes}`);
 
@@ -101,7 +114,7 @@ async function getGitHubLink(): Promise<string> {
 		headCommit = await git.revparse(headBranch);
 	}
 
-	var lineNumberRange = await getLineNumberRangeForSnippet(relativePath, headCommit, snippet);
+	var lineNumberRange = await getLineNumberRangeForSnippet(git, relativePath, headCommit, snippet);
 	outputChannel.appendLine(`lineNumberRange at commit ${headCommit}: ${lineNumberRange}`);
 
 	var gitHubLink = "";
@@ -140,19 +153,43 @@ async function getGitHubLink(): Promise<string> {
 	return gitHubLink;
 }
 
-function initGit(): SimpleGit {
-	const git = simpleGit();
+// function initGit(): SimpleGit {
+// 	const git = simpleGit();
 
-	const repoPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-	if (!repoPath) {
-		throw new Error('No workspace folder found');
-	}
-	return git.cwd(repoPath);
+// 	const repoPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+// 	if (!repoPath) {
+// 		throw new Error('No workspace folder found');
+// 	}
+// 	return git.cwd(repoPath);
+// }
+
+// const git = initGit();
+
+interface GitProject {
+	rootPath: string;
+	git: SimpleGit;
 }
 
-const git = initGit();
+function initGitProjects(): GitProject[] {
+	const gitProjects: GitProject[] = [];
+	const workspaceFolders = vscode.workspace.workspaceFolders;
 
-async function getGitRemotes(): Promise<string[]> {
+	if (!workspaceFolders || workspaceFolders.length === 0) {
+		throw new Error('No workspace folders found');
+	}
+
+	for (const folder of workspaceFolders) {
+		const rootPath = folder.uri.fsPath;
+		const git = simpleGit().cwd(rootPath);
+		gitProjects.push({ rootPath, git });
+	}
+
+	return gitProjects;
+}
+
+const gitProjects = initGitProjects();
+
+async function getGitRemotes(git: SimpleGit): Promise<string[]> {
 	const remotes = await git.getRemotes(true);
 	return remotes.map(remote => `${remote.name}: ${remote.refs.fetch}`);
 }
@@ -221,7 +258,7 @@ function getMetaInfo(url: string): [owner: string, repo: string] {
  * Get the line number range of the snippet in the file at the specified commit. This function
  * doesn't need remote access to the repository.
  */
-async function getLineNumberRangeForSnippet(relativePath: string, commit: string, snippet: string): Promise<[number, number][]> {
+async function getLineNumberRangeForSnippet(git: SimpleGit, relativePath: string, commit: string, snippet: string): Promise<[number, number][]> {
 	outputChannel.appendLine(`getLineNumberRangeForSnippet, args: relativePath: ${relativePath}, commit: ${commit}, snippet: ${snippet}`);
 
 	try {
