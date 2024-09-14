@@ -140,30 +140,26 @@ async function getGitHubLink(): Promise<string> {
 		[startLine, endLine] = closestLineNumberRange;
 	}
 
-	gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${startLine}`;
+	var lines = `L${startLine}`;
 	if (endLine - startLine > 1) {
-		gitHubLink += `-L${endLine}`;
+		lines += `-L${endLine}`;
 	}
 
-	vscode.window.showInformationMessage(`GitHub Link: ${gitHubLink}`);
+	gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${lines}`;
+
+	outputChannel.appendLine(`lines' content: ${snippet}`);
+	outputChannel.appendLine(`github link: ${gitHubLink}`);
+	outputChannel.appendLine(`relative path: ${relativePath}#${lines}`);
+
+	// show the link as a message
+	// vscode.window.showInformationMessage(`GitHub Link: ${gitHubLink}`);
+
 	// copy to clipboard
 	vscode.env.clipboard.writeText(gitHubLink);
 	// open in browser
 	vscode.env.openExternal(vscode.Uri.parse(gitHubLink));
 	return gitHubLink;
 }
-
-// function initGit(): SimpleGit {
-// 	const git = simpleGit();
-
-// 	const repoPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-// 	if (!repoPath) {
-// 		throw new Error('No workspace folder found');
-// 	}
-// 	return git.cwd(repoPath);
-// }
-
-// const git = initGit();
 
 interface GitProject {
 	rootPath: string;
