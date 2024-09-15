@@ -145,7 +145,7 @@ async function getGitHubLink(): Promise<string> {
 		lines += `-L${endLine}`;
 	}
 
-	gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#L${lines}`;
+	gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#${lines}`;
 
 	outputChannel.appendLine(`lines' content:\n${snippet}`);
 	outputChannel.appendLine(`github link: ${gitHubLink}`);
