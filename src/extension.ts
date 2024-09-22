@@ -141,7 +141,7 @@ async function getGitHubLink(): Promise<string> {
 	}
 
 	var lines = `L${startLine}`;
-	if (endLine - startLine > 1) {
+	if (endLine - startLine > 0) {
 		lines += `-L${endLine}`;
 	}
 
