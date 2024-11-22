@@ -110,8 +110,15 @@ async function getGitHubLink(): Promise<string> {
 		// Failed to access remote repo, use information from local repo
 		outputChannel.appendLine(`Error getting remote info: ${error}`);
 
-		const headBranch = "master";
-		headCommit = await git.revparse(headBranch);
+		const headBranch = ["master", "main"];
+		for (const branch of headBranch) {
+			try {
+				headCommit = await git.revparse(branch);
+				break;
+			} catch (error) {
+				outputChannel.appendLine(`Error getting head commit: ${error}`);
+			}
+		}
 	}
 
 	var lineNumberRange = await getLineNumberRangeForSnippet(git, relativePath, headCommit, snippet);
