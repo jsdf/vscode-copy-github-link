@@ -1,11 +1,11 @@
 {
-  "publisher": "XiaochenCui",
+  "publisher": "jsdf",
   "name": "copy-github-link",
-  "displayName": "Copy GitHub Link",
+  "displayName": "Copy GitHub Link (jsdf fork)",
   "description": "Copy the GitHub link of a code snippet, no extra configuration needed.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/XiaochenCui/vscode-copy-github-link"
+    "url": "https://github.com/jsdf/vscode-copy-github-link"
   },
   "version": "0.9.13",
   "engines": {
