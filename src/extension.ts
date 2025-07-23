@@ -10,25 +10,25 @@ export function activate(context: vscode.ExtensionContext) {
   const disposableCopy = vscode.commands.registerCommand(
     "copy-github-link.copyGitHubLink",
     () => {
-      // outputChannel.show();
-
-      showGitHubLink();
-
-      // Don't hide the output channel, it will close the "Output" panel.
-      // outputChannel.hide();
+      copyGitHubLink();
     }
   );
 
-  context.subscriptions.push(disposableCopy);
+  const disposableOpen = vscode.commands.registerCommand(
+    "copy-github-link.openInGitHub",
+    () => {
+      openInGitHub();
+    }
+  );
+
+  context.subscriptions.push(disposableCopy, disposableOpen);
 }
 
-async function showGitHubLink() {
+async function copyGitHubLink() {
   try {
-    // Await the async function getGitHubLink
-    const link = await getGitHubLink();
-    vscode.window.showInformationMessage(`GitHub Link: ${link}`);
+    const link = await getGitHubLink(true, false);
+    vscode.window.showInformationMessage(`GitHub Link copied: ${link}`);
   } catch (error) {
-    // Handle errors thrown by getGitHubLink
     if (error instanceof Error) {
       vscode.window.showErrorMessage(error.message);
       console.error(error);
@@ -38,7 +38,24 @@ async function showGitHubLink() {
   }
 }
 
-async function detectMainBranch(git: SimpleGit, remoteName: string): Promise<string> {
+async function openInGitHub() {
+  try {
+    const link = await getGitHubLink(false, true);
+    vscode.window.showInformationMessage(`Opened in GitHub: ${link}`);
+  } catch (error) {
+    if (error instanceof Error) {
+      vscode.window.showErrorMessage(error.message);
+      console.error(error);
+    } else {
+      vscode.window.showErrorMessage("An unknown error occurred");
+    }
+  }
+}
+
+async function detectMainBranch(
+  git: SimpleGit,
+  remoteName: string
+): Promise<string> {
   // First try to get the remote HEAD branch
   try {
     const content = await git.raw(["remote", "show", remoteName]);
@@ -76,7 +93,10 @@ async function detectMainBranch(git: SimpleGit, remoteName: string): Promise<str
   return "main";
 }
 
-async function getGitHubLink(): Promise<string> {
+async function getGitHubLink(
+  copyToClipboard: boolean = false,
+  openInBrowser: boolean = false
+): Promise<string> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     throw new Error("No active editor found");
@@ -106,7 +126,9 @@ async function getGitHubLink(): Promise<string> {
 
   // get content of the selected lines, and remove the starting and trailing whitespaces
   const snippet = editor.document
-    .getText(new vscode.Range(selection.start.line, 0, selection.end.line + 1, 0))
+    .getText(
+      new vscode.Range(selection.start.line, 0, selection.end.line + 1, 0)
+    )
     .trim();
 
   // const snippet = vscode.window.activeTextEditor?.document.lineAt(startLine - 1).text;
@@ -122,8 +144,8 @@ async function getGitHubLink(): Promise<string> {
   const remote = remotes[0];
   outputChannel.appendLine(`remote: ${remote}`);
 
-  const remoteName = remote.split(" ")[0];
-  const remoteUrl = remote.split(" ")[1];
+  const remoteName = remote.split(": ")[0];
+  const remoteUrl = remote.split(": ")[1];
 
   const [owner, repo] = getMetaInfo(remoteUrl);
 
@@ -131,23 +153,33 @@ async function getGitHubLink(): Promise<string> {
   const mainBranch = await detectMainBranch(git, remoteName);
   outputChannel.appendLine(`Using main branch: ${mainBranch}`);
 
-  // For branch-based links, we use the current selection line numbers directly
-  // since we're linking to the latest version of the file on the main branch
+  // Get the HEAD commit hash of the main branch
+  const headCommit = await git.revparse([
+    `refs/remotes/${remoteName}/${mainBranch}`,
+  ]);
+  outputChannel.appendLine(`Using HEAD commit: ${headCommit}`);
+
+  // For commit-based links, we use the current selection line numbers directly
+  // since we're linking to a specific commit version of the file
   var lines = `L${startLine}`;
   if (endLine - startLine > 0) {
     lines += `-L${endLine}`;
   }
 
-  const gitHubLink = `https://github.com/${owner}/${repo}/blob/${mainBranch}/${relativePath}#${lines}`;
+  const gitHubLink = `https://github.com/${owner}/${repo}/blob/${headCommit}/${relativePath}#${lines}`;
 
   outputChannel.appendLine(`lines' content:\n${snippet}`);
   outputChannel.appendLine(`github link: ${gitHubLink}`);
   outputChannel.appendLine(`relative path: ${relativePath}#${lines}`);
 
-  // copy to clipboard
-  vscode.env.clipboard.writeText(gitHubLink);
-  // open in browser
-  vscode.env.openExternal(vscode.Uri.parse(gitHubLink));
+  // copy to clipboard if requested
+  if (copyToClipboard) {
+    vscode.env.clipboard.writeText(gitHubLink);
+  }
+  // open in browser if requested
+  if (openInBrowser) {
+    vscode.env.openExternal(vscode.Uri.parse(gitHubLink));
+  }
   return gitHubLink;
 }
 
@@ -243,7 +275,6 @@ function getMetaInfo(url: string): [owner: string, repo: string] {
 
   return [owner, repo];
 }
-
 
 // This method is called when your extension is deactivated
 export function deactivate() {}

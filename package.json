@@ -19,12 +19,12 @@
   "contributes": {
     "commands": [
       {
-        "command": "copy-github-link.helloWorld",
-        "title": "Hello World"
+        "command": "copy-github-link.copyGitHubLink",
+        "title": "Copy GitHub Link (main branch)"
       },
       {
-        "command": "copy-github-link.copyGitHubLink",
-        "title": "Copy GitHub Link"
+        "command": "copy-github-link.openInGitHub",
+        "title": "Open in GitHub (main branch)"
       }
     ],
     "menus": {
@@ -32,6 +32,11 @@
         {
           "when": "editorFocus",
           "command": "copy-github-link.copyGitHubLink",
+          "group": "9_cutcopypaste"
+        },
+        {
+          "when": "editorFocus",
+          "command": "copy-github-link.openInGitHub",
           "group": "9_cutcopypaste"
         }
       ]
